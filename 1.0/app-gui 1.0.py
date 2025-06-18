@@ -3,11 +3,14 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import subprocess, threading, os, json
 
-CONFIG_FILE = "config.json"
+CONFIG_FILE = "log_config.json"
 
 class MinecraftServerLauncher(tk.Tk):
     def __init__(self):
         super().__init__()
+        server_dir_path = os.path.join(os.path.dirname(__file__), "server_run")
+        os.makedirs(server_dir_path, exist_ok=True)
+
         self.title("Minecraft Server Launcher by Om Prakash")
         self.geometry("800x600")
         self.configure(bg="#121212")
@@ -17,16 +20,15 @@ class MinecraftServerLauncher(tk.Tk):
             "Vanilla": "server.jar",
             "Fabric": "fabric-server-launch.jar",
             "Forge": "forge-server.jar",
-            "Pocket Edition (PHP)": "pocketmine-mp.phar",
+            "Pocket Edition (PHP)": os.path.join("bedrock", "bedrock_server.exe"),
             "Custom (Browse)": None
         }
 
         self.process = None
         self.selected_server = tk.StringVar(value="Vanilla")
-        self.custom_path = tk.StringVar(value="")
-        self.memory_xms = tk.IntVar(value=1024)  # Default 1024 MB
-        self.memory_xmx = tk.IntVar(value=2048)  # Default 2048 MB
-
+        self.custom_path = tk.StringVar()
+        self.memory_xms = tk.IntVar(value=1024)
+        self.memory_xmx = tk.IntVar(value=2048)
 
         self.style = ttk.Style(self)
         self.style.theme_use("clam")
@@ -35,18 +37,18 @@ class MinecraftServerLauncher(tk.Tk):
         self.load_config()
 
     def customize_style(self):
-        self.style.configure("TFrame", background="#121212")
-        self.style.configure("TLabel", background="#121212", foreground="#ffffff", font=("Segoe UI", 11))
-        self.style.configure("TButton", font=("Segoe UI", 10, "bold"))
-        self.style.configure("TCombobox", font=("Segoe UI", 10))
-        self.style.map("TButton", background=[("active", "#333333")])
-        self.style.configure("RoundedButton.TButton", padding=6, relief="flat", background="#00b894", foreground="white")
-        self.style.map("RoundedButton.TButton", background=[("active", "#00cec9")])
+        style = self.style
+        style.configure("TFrame", background="#121212")
+        style.configure("TLabel", background="#121212", foreground="#ffffff", font=("Segoe UI", 11))
+        style.configure("TButton", font=("Segoe UI", 10, "bold"))
+        style.configure("TCombobox", font=("Segoe UI", 10))
+        style.map("TButton", background=[("active", "#333333")])
+        style.configure("RoundedButton.TButton", padding=6, relief="flat", background="#00b894", foreground="white")
+        style.map("RoundedButton.TButton", background=[("active", "#00cec9")])
 
     def create_widgets(self):
-        title = tk.Label(self, text="Minecraft Server Launcher", fg="#00b894", bg="#121212",
-                         font=("Segoe UI", 24, "bold"))
-        title.pack(pady=15)
+        tk.Label(self, text="Minecraft Server Launcher", fg="#00b894", bg="#121212",
+                 font=("Segoe UI", 24, "bold")).pack(pady=15)
 
         select_frame = ttk.Frame(self)
         select_frame.pack(padx=20, pady=10, fill="x")
@@ -57,8 +59,8 @@ class MinecraftServerLauncher(tk.Tk):
         self.server_menu.grid(row=0, column=1, padx=10, pady=5, sticky="w")
         self.server_menu.bind("<<ComboboxSelected>>", self.toggle_custom)
 
-        self.profile_button = ttk.Button(select_frame, text="📁 Load Last Profile", style="RoundedButton.TButton", command=self.load_config)
-        self.profile_button.grid(row=0, column=2, padx=5)
+        ttk.Button(select_frame, text="📁 Load Last Profile", style="RoundedButton.TButton",
+                   command=self.load_config).grid(row=0, column=2, padx=5)
 
         self.custom_entry = tk.Entry(select_frame, textvariable=self.custom_path, width=40, font=("Segoe UI", 10),
                                      state="disabled", bg="#1e1e1e", fg="#ffffff", insertbackground="white")
@@ -67,34 +69,28 @@ class MinecraftServerLauncher(tk.Tk):
         self.browse_button = ttk.Button(select_frame, text="Browse", command=self.browse_file, state="disabled")
         self.browse_button.grid(row=1, column=2, padx=5, sticky="w")
 
-        # Memory allocation
-        # Initial RAM Slider
         ttk.Label(select_frame, text="Initial RAM (MB):").grid(row=2, column=0, sticky="w", pady=5)
-        xms_slider = tk.Scale(select_frame, from_=256, to=8192, resolution=128, orient="horizontal",
-                            variable=self.memory_xms, bg="#1e1e1e", fg="white", highlightbackground="#1e1e1e",
-                            troughcolor="#00b894", font=("Segoe UI", 9))
-        xms_slider.grid(row=2, column=1, columnspan=2, sticky="ew", padx=10)
+        tk.Scale(select_frame, from_=256, to=8192, resolution=128, orient="horizontal",
+                 variable=self.memory_xms, bg="#1e1e1e", fg="white", highlightbackground="#1e1e1e",
+                 troughcolor="#00b894", font=("Segoe UI", 9)).grid(row=2, column=1, columnspan=2, sticky="ew", padx=10)
 
-        # Max RAM Slider
         ttk.Label(select_frame, text="Maximum RAM (MB):").grid(row=3, column=0, sticky="w", pady=5)
-        xmx_slider = tk.Scale(select_frame, from_=512, to=16384, resolution=256, orient="horizontal",
-                            variable=self.memory_xmx, bg="#1e1e1e", fg="white", highlightbackground="#1e1e1e",
-                            troughcolor="#0984e3", font=("Segoe UI", 9))
-        xmx_slider.grid(row=3, column=1, columnspan=2, sticky="ew", padx=10)
+        tk.Scale(select_frame, from_=512, to=16384, resolution=256, orient="horizontal",
+                 variable=self.memory_xmx, bg="#1e1e1e", fg="white", highlightbackground="#1e1e1e",
+                 troughcolor="#0984e3", font=("Segoe UI", 9)).grid(row=3, column=1, columnspan=2, sticky="ew", padx=10)
 
+        for text, command in [
+            ("🚀 Launch Server", self.launch_server),
+            ("🛑 Stop Server", self.stop_server),
+            ("🔄 Restart Server", self.restart_server)
+        ]:
+            ttk.Button(self, text=text, style="RoundedButton.TButton", command=command).pack(pady=(0, 10))
 
-
-        # Launch
-        self.launch_button = ttk.Button(self, text="🚀 Launch Server", style="RoundedButton.TButton", command=self.launch_server)
-        self.launch_button.pack(pady=10)
-
-        # Terminal
         self.log_text = tk.Text(self, height=20, bg="#1e1e1e", fg="#00ff00", insertbackground="white",
                                 font=("Consolas", 10), wrap="word", relief="flat", borderwidth=5)
         self.log_text.pack(padx=20, pady=5, fill="both", expand=True)
         self.log_text.config(state="disabled")
 
-        # Command input
         input_frame = ttk.Frame(self)
         input_frame.pack(fill="x", padx=20, pady=(5, 10))
 
@@ -103,17 +99,16 @@ class MinecraftServerLauncher(tk.Tk):
         self.command_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.command_entry.bind("<Return>", self.send_command)
 
-        self.send_button = ttk.Button(input_frame, text="📤 Send", style="RoundedButton.TButton", command=self.send_command)
-        self.send_button.pack(side="right")
+        ttk.Button(input_frame, text="📤 Send", style="RoundedButton.TButton",
+                   command=self.send_command).pack(side="right")
 
     def toggle_custom(self, event=None):
-        server = self.selected_server.get()
-        if server == "Custom (Browse)":
-            self.custom_entry.config(state="normal")
-            self.browse_button.config(state="normal")
-        else:
-            self.custom_entry.config(state="disabled")
-            self.browse_button.config(state="disabled")
+        custom_selected = self.selected_server.get() == "Custom (Browse)"
+        state = "normal" if custom_selected else "disabled"
+        self.custom_entry.config(state=state)
+        self.browse_button.config(state=state)
+        self.toggle_memory_sliders()
+
 
     def browse_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("JAR/PHAR Files", "*.jar *.phar")])
@@ -121,63 +116,59 @@ class MinecraftServerLauncher(tk.Tk):
             self.custom_path.set(file_path)
 
     def launch_server(self):
+        self.command_entry.config(state="normal")
         server_type = self.selected_server.get()
-        jar_file = self.server_types[server_type]
-        if server_type == "Custom (Browse)":
-            jar_file = self.custom_path.get()
+        jar_file = self.server_types.get(server_type)
 
-        if not jar_file or not os.path.isfile(jar_file):
-            messagebox.showerror("File Not Found", f"Cannot find file: {jar_file}")
+        # Handle missing server file
+        if server_type == "Custom (Browse)":
+            jar_path = self.custom_path.get()
+        elif jar_file:
+            jar_path = os.path.join(os.path.dirname(__file__), "server_run", jar_file)
+        else:
+            messagebox.showerror("Error", f"Server type '{server_type}' is not supported or file missing.")
+            return
+
+        if not os.path.isfile(jar_path):
+            messagebox.showerror("File Not Found", f"Cannot find server file:\n{jar_path}")
             return
 
         self.save_config()
-        self.append_log(f"Launching server: {jar_file} with {self.memory_xms.get()} initial and {self.memory_xmx.get()} max memory...\n")
-        threading.Thread(target=self.run_server, args=(jar_file,), daemon=True).start()
-
-    def run_server(self, jar_file):
-        xms = self.memory_xms.get()
-        xmx = self.memory_xmx.get()
-
-        use_php = jar_file.endswith(".phar")
-        cmd = (
-            ["php", jar_file] if use_php else
-            ["java", f"-Xms{xms}M", f"-Xmx{xmx}M", "-jar", jar_file, "nogui"]
-        )
+        self.append_log(f"🚀 Launching server: {jar_path} with {self.memory_xms.get()}MB - {self.memory_xmx.get()}MB RAM\n")
+        threading.Thread(target=self.run_server, args=(jar_path,), daemon=True).start()
 
 
-        while True:
-            try:
-                self.append_log(f"\n▶ Starting server with command: {' '.join(cmd)}\n")
-                self.process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    stdin=subprocess.PIPE,
-                    universal_newlines=True,
-                    bufsize=1
-                )
+    def run_server(self, jar_path):
+        xms, xmx = self.memory_xms.get(), self.memory_xmx.get()
+        
+        if jar_path.endswith(".phar"):
+            cmd = ["php", jar_path]
+        elif jar_path.endswith(".exe"):
+            cmd = [jar_path]  # Pocket Edition Bedrock
+        else:
+            cmd = ["java", f"-Xms{xms}M", f"-Xmx{xmx}M", "-jar", jar_path, "nogui"]
 
+        server_dir = os.path.join(os.path.dirname(__file__), "server_run")
+
+        try:
+            self.append_log(f"\n▶ Starting server with command: {' '.join(cmd)}\n")
+            self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                            stdin=subprocess.PIPE if not jar_path.endswith(".exe") else None,
+                                            universal_newlines=True, bufsize=1, cwd=server_dir)
+            if self.process.stdout:
                 for line in self.process.stdout:
                     self.append_log(line)
+            self.process.wait()
+            self.append_log("\n✔ Server stopped.\n")
+        except Exception as e:
+            self.append_log(f"❌ Failed to start server: {str(e)}\n")
 
-                self.process.stdout.close()
-                return_code = self.process.wait()
-
-                if return_code == 0:
-                    self.append_log("\n✔ Server stopped gracefully.\n")
-                    break
-                else:
-                    self.append_log(f"\n⚠ Server crashed (exit code {return_code}). Restarting in 5 seconds...\n")
-                    for i in range(5, 0, -1):
-                        self.append_log(f"⏳ Restarting in {i}...\n")
-                        self.update()
-                        self.after(1000)
-
-            except Exception as e:
-                self.append_log(f"❌ Failed to start server: {str(e)}\n")
-                break
 
     def send_command(self, event=None):
+        if self.selected_server.get() == "Pocket Edition (PHP)":
+            self.append_log("⚠ Bedrock server does not support console input.\n")
+            return
+
         cmd = self.command_entry.get().strip()
         if self.process and self.process.stdin and cmd:
             try:
@@ -216,12 +207,70 @@ class MinecraftServerLauncher(tk.Tk):
                     config = json.load(f)
                     self.selected_server.set(config.get("server_type", "Vanilla"))
                     self.custom_path.set(config.get("custom_path", ""))
-                    self.memory_xms.set(config.get("xms", "1G"))
-                    self.memory_xmx.set(config.get("xmx", "2G"))
+                    self.memory_xms.set(config.get("xms", 1024))
+                    self.memory_xmx.set(config.get("xmx", 2048))
                     self.toggle_custom()
+                    self.toggle_memory_sliders()
                     self.append_log("✔ Profile loaded from config.json\n")
             except Exception as e:
                 self.append_log(f"Failed to load profile: {str(e)}\n")
+
+
+    def stop_server(self):
+        if self.process and self.process.poll() is None:
+            try:
+                self.append_log("🛑 Sending 'stop' command to server...\n")
+                self.process.stdin.write("stop\n")
+                self.process.stdin.flush()
+
+                # Wait for process to exit gracefully
+                self.process.wait(timeout=15)
+                self.append_log("✔ Server stopped gracefully.\n")
+                self.command_entry.config(state="disabled")
+            except Exception as e:
+                self.append_log(f"❌ Error stopping server: {str(e)}\n")
+        else:
+            self.append_log("⚠ No running server to stop.\n")
+
+        # Clean up lock files after server stops
+        lock_paths = [
+            os.path.join("server_run", "world", "session.lock"),
+            os.path.join("server_run", "world_nether", "session.lock"),
+            os.path.join("server_run", "world_the_end", "session.lock")
+        ]
+        for path in lock_paths:
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                    self.append_log(f"🧹 Deleted lock file: {path}\n")
+            except Exception as e:
+                self.append_log(f"⚠ Failed to delete lock file {path}: {str(e)}\n")
+
+    def restart_server(self):
+        if self.process and self.process.poll() is None:
+            self.append_log("🔁 Restarting server...\n")
+            try:
+                self.process.terminate()
+                self.process.wait(timeout=10)
+            except Exception as e:
+                self.append_log(f"⚠ Error while stopping server: {str(e)}\n")
+        self.launch_server()
+
+    def toggle_memory_sliders(self):
+        server_type = self.selected_server.get()
+        if server_type == "Pocket Edition (PHP)":
+            # Disable RAM sliders for Bedrock
+            for widget in self.children.values():
+                if isinstance(widget, ttk.Frame):
+                    for child in widget.winfo_children():
+                        if isinstance(child, tk.Scale):
+                            child.config(state="disabled")
+        else:
+            for widget in self.children.values():
+                if isinstance(widget, ttk.Frame):
+                    for child in widget.winfo_children():
+                        if isinstance(child, tk.Scale):
+                            child.config(state="normal")
 
 if __name__ == "__main__":
     MinecraftServerLauncher().mainloop()
